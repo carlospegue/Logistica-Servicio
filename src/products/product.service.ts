@@ -28,12 +28,9 @@ export class ProductService {
     }
 
     async getLowStock() {
-        // Alternativa compatible con Prisma
-        return prisma.$queryRaw`
-    SELECT p.*, c.name as "categoryName"
-    FROM "Product" p
-    JOIN "Category" c ON p."categoryId" = c.id
-    WHERE p.stock <= p."minStock"
-  `;
+        const products = await prisma.product.findMany({
+            include: { category: true },
+        });
+        return products.filter(p => p.stock <= p.minStock);
     }
 }
