@@ -1,0 +1,259 @@
+# StockFlow API - Colección de Pruebas HTTP
+# Extensión requerida: REST Client (VS Code)
+# Instrucciones: Haz click en "Send Request" sobre cada petición
+
+@baseUrl = http://localhost:3000/api
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjhjYjZmMDA3LTQ0N2QtNDA2MC05MzE0LTQ4Yjk2MjY2OTkzNSIsImVtYWlsIjoiYWRtaW5Ac3RvY2tmbG93LmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc4MDYyMjc0MSwiZXhwIjoxNzgwNjUxNTQxfQ.B_ipTXIcHk_0CA2mg2ORuJYJVmU8SAyLfd8SsGSTlhY
+@operatorToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM0OWNjOTQ3LWQ2ZjMtNDgwNi05NDM1LTViZDhhODdiYTQzOCIsImVtYWlsIjoib3BlcmF0b3JAc3RvY2tmbG93LmNvbSIsInJvbGUiOiJPUEVSQVRPUiIsImlhdCI6MTc4MDYyMjk4MywiZXhwIjoxNzgwNjUxNzgzfQ.kn4T8EbCbIRemRunTN6Oxzv2cOJxP_XesWpZ0sKvFTc
+
+###############################################
+# 1. MÓDULO DE AUTENTICACIÓN
+###############################################
+
+### 1.1 Registro de usuario ADMIN
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin2@stockflow.com",
+  "password": "admin123",
+  "role": "ADMIN"
+}
+
+###
+
+### 1.2 Registro de usuario OPERATOR
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "operator2@stockflow.com",
+  "password": "op12345",
+  "role": "OPERATOR"
+}
+
+###
+
+### 1.3 Login ADMIN (copia el token y pégalo en @adminToken arriba)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@stockflow.com",
+  "password": "admin123"
+}
+
+###
+
+### 1.4 Login OPERATOR (copia el token y pégalo en @operatorToken arriba)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "operator@stockflow.com",
+  "password": "op123"
+}
+
+###
+
+### 1.5 Login con credenciales inválidas (debe retornar 401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "noexiste@stockflow.com",
+  "password": "wrongpassword"
+}
+
+###############################################
+# 2. MÓDULO DE PRODUCTOS
+###############################################
+
+### 2.1 Listar todos los productos (autenticado)
+GET {{baseUrl}}/products
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 2.2 Listar productos filtrados por categoría
+GET {{baseUrl}}/products?categoryId=1
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 2.3 Crear producto (solo ADMIN)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Teclado Mecánico",
+  "sku": "TEC-002",
+  "stock": 15,
+  "minStock": 3,
+  "price": 75.99,
+  "categoryId": 1
+}
+
+###
+
+### 2.4 Crear producto con datos inválidos (debe retornar 400)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "",
+  "sku": "",
+  "stock": -1,
+  "price": 0
+}
+
+###
+
+### 2.5 Actualizar producto (solo ADMIN)
+PUT {{baseUrl}}/products/1
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "stock": 20,
+  "price": 950.00
+}
+
+###
+
+### 2.6 Intentar crear producto con rol OPERATOR (debe retornar 403)
+POST {{baseUrl}}/products
+Content-Type: application/json
+Authorization: Bearer {{operatorToken}}
+
+{
+  "name": "Monitor",
+  "sku": "MON-001",
+  "stock": 5,
+  "minStock": 2,
+  "price": 299.99,
+  "categoryId": 1
+}
+
+###
+
+### 2.7 Eliminar producto (solo ADMIN)
+DELETE {{baseUrl}}/products/3
+Authorization: Bearer {{adminToken}}
+
+###############################################
+# 3. MÓDULO DE REPORTES
+###############################################
+
+### 3.1 Listar productos con stock bajo (solo ADMIN)
+GET {{baseUrl}}/reports/low-stock
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 3.2 Intentar acceder a reporte con OPERATOR (debe retornar 403)
+GET {{baseUrl}}/reports/low-stock
+Authorization: Bearer {{operatorToken}}
+
+###############################################
+# 4. MÓDULO DE PEDIDOS
+###############################################
+
+### 4.1 Crear pedido exitoso (operación transaccional)
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Authorization: Bearer {{operatorToken}}
+
+{
+  "items": [
+    { "productId": 1, "quantity": 2 },
+    { "productId": 2, "quantity": 1 }
+  ]
+}
+
+###
+
+### 4.2 Crear pedido con stock insuficiente (debe retornar 400 y hacer rollback)
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Authorization: Bearer {{operatorToken}}
+
+{
+  "items": [
+    { "productId": 2, "quantity": 9999 }
+  ]
+}
+
+###
+
+### 4.3 Crear pedido con producto inexistente (debe retornar 404)
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Authorization: Bearer {{operatorToken}}
+
+{
+  "items": [
+    { "productId": 9999, "quantity": 1 }
+  ]
+}
+
+###
+
+### 4.4 Obtener detalle de pedido
+GET {{baseUrl}}/orders/1
+Authorization: Bearer {{adminToken}}
+
+###
+
+### 4.5 Cambiar estado a DISPATCHED
+PATCH {{baseUrl}}/orders/1/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "DISPATCHED"
+}
+
+###
+
+### 4.6 Crear otro pedido para cancelar
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Authorization: Bearer {{operatorToken}}
+
+{
+  "items": [
+    { "productId": 1, "quantity": 1 }
+  ]
+}
+
+###
+
+### 4.7 Cancelar pedido (debe reintegrar stock automáticamente)
+PATCH {{baseUrl}}/orders/2/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "CANCELLED"
+}
+
+###
+
+### 4.8 Intentar modificar pedido ya despachado (debe retornar 400)
+PATCH {{baseUrl}}/orders/1/status
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "CANCELLED"
+}
+
+###
+
+### 4.9 Acceder a pedido sin token (debe retornar 401)
+GET {{baseUrl}}/orders/1
+
+###
